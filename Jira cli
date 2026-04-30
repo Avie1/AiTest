@@ -1,0 +1,659 @@
+# Jira CLI
+
+JiraCLI is a feature-rich interactive command line tool for Atlassian Jira that helps you avoid the Jira web UI. It provides comprehensive functionality for managing issues, epics, sprints, and boards directly from your terminal with both interactive and non-interactive modes.
+
+The tool supports both Jira Cloud and on-premise (Server/Data Center) installations, offering multiple authentication methods including basic auth, bearer tokens (PAT), and mTLS. It features an interactive TUI (terminal user interface) with vim-like navigation, plain text output modes for scripting, and raw JSON output for automation workflows.
+
+## Installation
+
+### Install via Homebrew (macOS)
+
+```bash
+# Add the tap and install
+brew tap ankitpokhrel/jira-cli
+brew install jira-cli
+```
+
+### Install via Go
+
+```bash
+# Install using go install (requires Go 1.16+)
+go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest
+```
+
+### Install via Docker
+
+```bash
+# Run jira-cli in a Docker container
+docker run -it --rm ghcr.io/ankitpokhrel/jira-cli:latest
+```
+
+### Install on Windows (Scoop)
+
+```powershell
+# Install via Scoop package manager
+scoop bucket add extras
+scoop install jira-cli
+```
+
+## Configuration
+
+### Initialize Jira CLI Configuration
+
+The `jira init` command sets up the configuration required for the tool to connect to your Jira instance. It creates a configuration file with server details, authentication, default project, and board settings.
+
+```bash
+# Interactive configuration setup
+jira init
+
+# Non-interactive setup for Jira Cloud
+export JIRA_API_TOKEN="your-api-token"
+jira init --installation cloud --server https://your-domain.atlassian.net --login your-email@example.com --project PRJ --board "Sprint Board"
+
+# Non-interactive setup for on-premise with basic auth
+export JIRA_API_TOKEN="your-password"
+jira init --installation local --server https://jira.company.com --login username --project PRJ --board "Dev Board"
+
+# Setup with bearer token authentication (PAT)
+export JIRA_AUTH_TYPE=bearer
+export JIRA_API_TOKEN="your-personal-access-token"
+jira init --installation local --server https://jira.company.com --project PRJ
+
+# Setup with insecure TLS (for self-signed certificates)
+jira init --insecure
+
+# Force overwrite existing configuration
+jira init --force
+```
+
+## Issue Management
+
+### List Issues
+
+The `jira issue list` command searches and displays issues with extensive filtering options. Issues are shown in an interactive table by default with vim-like navigation.
+
+```bash
+# List recent issues in the configured project
+jira issue list
+
+# List issues with specific filters
+jira issue list -s"In Progress" -yHigh -a$(jira me)
+
+# List issues created in the last 7 days
+jira issue list --created -7d
+
+# List issues updated this week assigned to no one
+jira issue list --updated week -ax
+
+# List issues with specific type and resolution
+jira issue list -tBug -R"Won't Do"
+
+# List issues with multiple labels
+jira issue list -lbackend -l"high-prio"
+
+# List issues in plain text mode (for scripting)
+jira issue list --plain --no-headers
+
+# List specific columns only
+jira issue list --plain --columns key,assignee,status
+
+# Output as raw JSON
+jira issue list --raw
+
+# Output as CSV
+jira issue list --csv
+
+# Paginate results (get 50 items starting from item 10)
+jira issue list --paginate 10:50
+
+# Execute raw JQL query
+jira issue list -q "summary ~ cli AND status != Done"
+
+# Search for text in issues
+jira issue list "Feature Request"
+
+# List issues in a different project
+jira issue list -pOTHER
+
+# List issues you are watching
+jira issue list -w
+
+# List recently accessed issues
+jira issue list --history
+```
+
+### Create Issue
+
+The `jira issue create` command creates a new issue with support for interactive prompts, templates, and custom fields.
+
+```bash
+# Create issue interactively
+jira issue create
+
+# Create issue with all parameters (non-interactive)
+jira issue create -tBug -s"Login button not working" -yHigh -lbug -lurgent -b"Users cannot click the login button on mobile devices" --no-input
+
+# Create issue and attach to an epic
+jira issue create -tStory -s"Implement dark mode" -PEPIC-42
+
+# Create issue with custom fields
+jira issue create -tStory -s"Issue with story points" --custom story-points=3
+
+# Create issue in a different project
+jira issue create -pOTHER -tTask -s"Cross-project task"
+
+# Create issue with fix version
+jira issue create -tBug -s"Critical bug" --fix-version v2.0
+
+# Create issue with component
+jira issue create -tTask -s"Backend task" -CBackend
+
+# Create issue from template file
+jira issue create -tStory -s"Feature implementation" --template /path/to/template.md
+
+# Create issue from stdin
+echo "Description from stdin" | jira issue create -s"New Task" -tTask --no-input
+
+# Create issue and open in browser
+jira issue create -tBug -s"UI Bug" --web
+
+# Create issue with JSON output
+jira issue create -tTask -s"Scripted task" --no-input --raw
+# Output: {"id":"10001","key":"PRJ-123","self":"https://..."}
+```
+
+### View Issue
+
+The `jira issue view` command displays detailed information about an issue including description, comments, and linked issues.
+
+```bash
+# View issue details
+jira issue view ISSUE-1
+
+# View issue with 5 recent comments
+jira issue view ISSUE-1 --comments 5
+
+# View issue in plain text mode
+jira issue view ISSUE-1 --plain
+
+# Get raw JSON response
+jira issue view ISSUE-1 --raw
+```
+
+### Edit Issue
+
+The `jira issue edit` command modifies existing issue fields including summary, description, priority, labels, and custom fields.
+
+```bash
+# Edit issue interactively
+jira issue edit ISSUE-1
+
+# Edit summary and priority non-interactively
+jira issue edit ISSUE-1 -s"Updated summary" -yMedium --no-input
+
+# Edit description
+jira issue edit ISSUE-1 -b"New description content" --no-input
+
+# Add labels (append to existing)
+jira issue edit ISSUE-1 -lnew-label -lanother-label
+
+# Remove a label (prefix with minus)
+jira issue edit ISSUE-1 --label -old-label
+
+# Add and remove labels in one command
+jira issue edit ISSUE-1 --label -p2 --label p1
+
+# Update components
+jira issue edit ISSUE-1 -CBackend -C-Frontend
+
+# Update fix versions
+jira issue edit ISSUE-1 --fix-version v2.0 --fix-version -v1.0
+
+# Update assignee
+jira issue edit ISSUE-1 -a"john.doe@example.com"
+
+# Unassign issue
+jira issue edit ISSUE-1 -ax
+
+# Edit from stdin
+echo "Updated description" | jira issue edit ISSUE-1 --no-input
+
+# Edit custom fields
+jira issue edit ISSUE-1 --custom story-points=5
+
+# Edit without notifying watchers
+jira issue edit ISSUE-1 -s"Silent update" --skip-notify --no-input
+```
+
+### Assign Issue
+
+The `jira issue assign` command assigns or unassigns users to/from issues.
+
+```bash
+# Assign interactively
+jira issue assign
+
+# Assign to specific user by email
+jira issue assign ISSUE-1 john@example.com
+
+# Assign to user by display name
+jira issue assign ISSUE-1 "John Doe"
+
+# Assign to yourself
+jira issue assign ISSUE-1 $(jira me)
+
+# Assign to default assignee
+jira issue assign ISSUE-1 default
+
+# Unassign issue
+jira issue assign ISSUE-1 x
+```
+
+### Move/Transition Issue
+
+The `jira issue move` command transitions an issue from one status to another based on available workflow transitions.
+
+```bash
+# Move issue interactively (shows available transitions)
+jira issue move ISSUE-1
+
+# Move to specific state
+jira issue move ISSUE-1 "In Progress"
+jira issue move ISSUE-1 Done
+
+# Move with a comment
+jira issue move ISSUE-1 "In Progress" --comment "Started working on this"
+
+# Move with resolution and assignee
+jira issue move ISSUE-1 Done -RFixed -a$(jira me)
+
+# Move and open in browser
+jira issue move ISSUE-1 Done --web
+```
+
+### Clone Issue
+
+The `jira issue clone` command duplicates an issue with the ability to override metadata.
+
+```bash
+# Clone issue
+jira issue clone ISSUE-1
+
+# Clone with modified summary
+jira issue clone ISSUE-1 -s"Cloned: Original summary"
+
+# Clone with different priority and assignee
+jira issue clone ISSUE-1 -yHigh -a$(jira me)
+
+# Clone with text replacement in summary and description
+jira issue clone ISSUE-1 -H"old-text:new-text"
+
+# Clone with different labels
+jira issue clone ISSUE-1 -lcloned -lneeds-review
+
+# Clone and open in browser
+jira issue clone ISSUE-1 --web
+```
+
+### Delete Issue
+
+The `jira issue delete` command removes an issue from Jira.
+
+```bash
+# Delete issue interactively
+jira issue delete
+
+# Delete specific issue
+jira issue delete ISSUE-1
+
+# Delete issue with all subtasks
+jira issue delete ISSUE-1 --cascade
+```
+
+### Link Issues
+
+The `jira issue link` command creates relationships between two issues.
+
+```bash
+# Link issues interactively
+jira issue link
+
+# Link with specific relationship type
+jira issue link ISSUE-1 ISSUE-2 Blocks
+jira issue link ISSUE-1 ISSUE-2 Duplicate
+jira issue link ISSUE-1 ISSUE-2 "is blocked by"
+
+# Add remote web link to issue
+jira issue link remote ISSUE-1 https://github.com/org/repo/pull/123 "Related PR"
+```
+
+### Unlink Issues
+
+The `jira issue unlink` command removes links between issues.
+
+```bash
+# Unlink interactively
+jira issue unlink
+
+# Unlink specific issues
+jira issue unlink ISSUE-1 ISSUE-2
+```
+
+### Add Comment
+
+The `jira issue comment add` command adds comments to issues with support for markdown formatting.
+
+```bash
+# Add comment interactively
+jira issue comment add
+
+# Add comment directly
+jira issue comment add ISSUE-1 "This is my comment"
+
+# Add multi-line comment
+jira issue comment add ISSUE-1 $'Line 1\n\nLine 2'
+
+# Add internal/private comment (Service Desk)
+jira issue comment add ISSUE-1 "Internal note" --internal
+
+# Add comment from template file
+jira issue comment add ISSUE-1 --template /path/to/comment.md
+
+# Add comment from stdin
+echo "Comment from stdin" | jira issue comment add ISSUE-1
+
+# Add comment and open in browser
+jira issue comment add ISSUE-1 "Done!" --web
+```
+
+### Add Worklog
+
+The `jira issue worklog add` command logs time spent on issues.
+
+```bash
+# Add worklog interactively
+jira issue worklog add
+
+# Add worklog with time spent
+jira issue worklog add ISSUE-1 "2d 1h 30m" --no-input
+
+# Add worklog with comment
+jira issue worklog add ISSUE-1 "4h" --comment "Implemented feature X" --no-input
+
+# Add worklog with specific start date
+jira issue worklog add ISSUE-1 "3h" --started "2024-01-15 09:00:00"
+
+# Add worklog with timezone
+jira issue worklog add ISSUE-1 "2h" --started "2024-01-15 14:00:00" --timezone "Europe/Berlin"
+
+# Add worklog with Jira datetime format
+jira issue worklog add ISSUE-1 "1h 30m" --started "2024-01-15T09:30:00.000+0200"
+
+# Add worklog and update remaining estimate
+jira issue worklog add ISSUE-1 "4h" --new-estimate "2h" --no-input
+```
+
+## Epic Management
+
+### List Epics
+
+The `jira epic list` command displays epics in an interactive explorer view with their associated issues.
+
+```bash
+# List all epics in explorer view
+jira epic list
+
+# List epics in table view
+jira epic list --table
+
+# List epics in plain text
+jira epic list --table --plain
+
+# List issues within a specific epic
+jira epic list EPIC-1
+
+# List epic issues in plain mode
+jira epic list EPIC-1 --plain
+
+# Filter epic issues
+jira epic list EPIC-1 -ax -yHigh
+
+# List epics by reporter
+jira epic list -r$(jira me) -sOpen
+
+# List epics with specific columns
+jira epic list --table --plain --columns key,summary,status
+```
+
+### Create Epic
+
+The `jira epic create` command creates new epics.
+
+```bash
+# Create epic interactively
+jira epic create
+
+# Create epic with parameters
+jira epic create -n"Q1 Features" -s"All Q1 feature work" -yHigh -lq1 -b"Epic for Q1 2024 features"
+```
+
+### Add Issues to Epic
+
+The `jira epic add` command adds existing issues to an epic.
+
+```bash
+# Add issues interactively
+jira epic add
+
+# Add multiple issues to epic
+jira epic add EPIC-1 ISSUE-1 ISSUE-2 ISSUE-3
+```
+
+### Remove Issues from Epic
+
+The `jira epic remove` command removes issues from their parent epic.
+
+```bash
+# Remove issues interactively
+jira epic remove
+
+# Remove specific issues from epic
+jira epic remove ISSUE-1 ISSUE-2
+```
+
+## Sprint Management
+
+### List Sprints
+
+The `jira sprint list` command displays sprints and their issues in an interactive explorer view.
+
+```bash
+# List sprints in explorer view
+jira sprint list
+
+# List sprints in table view
+jira sprint list --table
+
+# List sprints in plain text
+jira sprint list --table --plain
+
+# List issues in current active sprint
+jira sprint list --current
+
+# List issues in current sprint assigned to me
+jira sprint list --current -a$(jira me)
+
+# List issues in previous sprint
+jira sprint list --prev
+
+# List issues in next planned sprint
+jira sprint list --next
+
+# List sprints by state
+jira sprint list --state future,active
+
+# List issues in specific sprint by ID
+jira sprint list 42
+
+# Filter sprint issues
+jira sprint list 42 -yHigh -a$(jira me)
+
+# List sprint issues with specific columns
+jira sprint list 42 --plain --columns type,key,summary,status
+```
+
+### Add Issues to Sprint
+
+The `jira sprint add` command adds issues to a sprint.
+
+```bash
+# Add issues interactively
+jira sprint add
+
+# Add multiple issues to sprint
+jira sprint add 42 ISSUE-1 ISSUE-2 ISSUE-3
+```
+
+## Board and Project Management
+
+### List Boards
+
+The `jira board list` command displays all boards in the configured project.
+
+```bash
+# List all boards
+jira board list
+```
+
+### List Projects
+
+The `jira project list` command displays all accessible projects.
+
+```bash
+# List all projects
+jira project list
+```
+
+### List Releases
+
+The `jira release list` command displays project versions/releases.
+
+```bash
+# List releases for default project
+jira release list
+
+# List releases for specific project
+jira release list --project PRJ
+jira release list --project 10001
+```
+
+## Utility Commands
+
+### Open in Browser
+
+The `jira open` command opens the project or a specific issue in your web browser.
+
+```bash
+# Open project in browser
+jira open
+
+# Open specific issue in browser
+jira open ISSUE-1
+```
+
+### Get Current User
+
+The `jira me` command returns the current authenticated user's account ID or username.
+
+```bash
+# Get current user
+jira me
+
+# Use in scripts for self-assignment
+jira issue assign ISSUE-1 $(jira me)
+```
+
+### Shell Completion
+
+The `jira completion` command generates shell completion scripts.
+
+```bash
+# Generate bash completion
+jira completion bash > /etc/bash_completion.d/jira
+
+# Generate zsh completion
+jira completion zsh > "${fpath[1]}/_jira"
+
+# Generate fish completion
+jira completion fish > ~/.config/fish/completions/jira.fish
+```
+
+## TUI Navigation
+
+When using the interactive table or explorer views, the following keyboard shortcuts are available:
+
+```
+j/k or arrows    Navigate up/down
+h/l or arrows    Navigate left/right
+g/G              Jump to top/bottom
+Ctrl+f           Page down
+Ctrl+b           Page up
+v                View issue details
+m                Move/transition issue
+Enter            Open in browser
+c                Copy issue URL to clipboard
+Ctrl+k           Copy issue key to clipboard
+Ctrl+r or F5     Refresh list
+w or Tab         Toggle sidebar focus (explorer view)
+?                Show help
+q/Esc/Ctrl+c     Quit
+```
+
+## Scripting Examples
+
+### Tickets Created Per Day This Month
+
+```bash
+#!/usr/bin/env bash
+
+tickets=$(jira issue list --created month --plain --columns created --no-headers | awk '{print $2}' | awk -F'-' '{print $3}' | sort -n | uniq -c)
+
+echo "${tickets}" | while IFS=$'\t' read -r line; do
+  day=$(echo "${line}" | awk '{print $2}')
+  count=$(echo "${line}" | awk '{print $1}')
+  printf "Day #%s: %s\n" "${day}" "${count}"
+done
+```
+
+### Number of Tickets Per Sprint
+
+```bash
+#!/usr/bin/env bash
+
+sprints=$(jira sprint list --table --plain --columns id,name --no-headers)
+
+echo "${sprints}" | while IFS=$'\t' read -r id name; do
+  count=$(jira sprint list "${id}" --plain --no-headers 2>/dev/null | wc -l)
+  printf "%10s: %3d\n" "${name}" $((count))
+done
+```
+
+### Bulk Update Issues
+
+```bash
+#!/usr/bin/env bash
+
+# Get all open bugs assigned to me
+issues=$(jira issue list -tBug -sOpen -a$(jira me) --plain --columns key --no-headers)
+
+# Move each to "In Progress"
+for issue in $issues; do
+  jira issue move "$issue" "In Progress" --comment "Starting work"
+done
+```
+
+## Summary
+
+JiraCLI provides a comprehensive command-line interface for all common Jira operations, making it ideal for developers who prefer terminal-based workflows. The tool excels at issue management (list, create, edit, move, assign, comment), epic and sprint management, and provides powerful filtering with JQL support. Its interactive TUI with vim-like navigation offers a fast, keyboard-driven experience, while plain text and JSON output modes enable seamless integration with shell scripts and automation pipelines.
+
+The tool's flexibility in configuration (supporting Cloud, Server, and Data Center installations with multiple auth methods) combined with its POSIX-compliant flags makes it highly adaptable to different environments and workflows. Whether you're quickly checking issue status, bulk-updating tickets, or building automated CI/CD integrations, JiraCLI provides the functionality needed to efficiently manage Jira without leaving your terminal.
